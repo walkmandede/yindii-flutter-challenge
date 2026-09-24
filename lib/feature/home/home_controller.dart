@@ -26,9 +26,10 @@ class HomeController extends GetxController {
 
   bool get hasMore => _page < _totalPages;
 
-  List<DealModel> get visibleDeals => todayOnly.value
-      ? deals.where((d) => d.pickupWindow.isToday).toList()
-      : deals.toList();
+  List<DealModel> get visibleDeals => todayOnly.value ? deals.where((d) => d.pickupWindow.isToday).toList() : deals.toList();
+
+  int _refreshId = 0; // increases on every refresh, marks old requests as stale
+  bool _isRefreshing = false;
 
   @override
   void onInit() {
@@ -43,6 +44,19 @@ class HomeController extends GetxController {
 
   Future<void> _initialLoad() async {
     isLoading.value = true;
+
+    //TODO: delete after fix
+    //listening deals changes to check duplicates
+    deals.listen(
+      (p0) {
+        final ids = p0.map((p) => p.id); //cannot compare by objects yet, so by id
+        final totalCounts = ids.length;
+        final uniqueCounts = ids.toSet().length;
+        final dupes = totalCounts - uniqueCounts;
+        LogService.log('Page: $_page, Total: $totalCounts, Uniques: $uniqueCounts, Dupes: $dupes');
+      },
+    );
+
     try {
       await Future.wait([refreshDeals(), _loadFlashDeals()]);
     } catch (e) {
@@ -56,36 +70,53 @@ class HomeController extends GetxController {
   }
 
   Future<void> refreshDeals() async {
-    _page = 1;
-    final res = await dealRepo.fetchDeals(page: 1);
-    _totalPages = res.totalPages;
-    deals.assignAll(res.items);
-    refreshController.refreshCompleted();
+    LogService.log('Triggering Refresh Deal');
+    final rid = ++_refreshId;
+    _isRefreshing = true;
+    _isFetchingMore = false;
+
+    try {
+      final res = await dealRepo.fetchDeals(page: 1);
+      if (rid != _refreshId) return; // a newer refresh started, ignore this result
+      _page = 1;
+      _totalPages = res.totalPages;
+      deals.assignAll(res.items);
+      refreshController.refreshCompleted();
+    } finally {
+      if (rid == _refreshId) _isRefreshing = false;
+    }
   }
 
   Future<void> loadMore() async {
-    if (_isFetchingMore) return;
+    if (_isFetchingMore || _isRefreshing) return;
     if (!hasMore) {
       refreshController.loadNoData();
       return;
     }
     _isFetchingMore = true;
-    _page++;
+    final rid = _refreshId;
+    final nextPage = _page + 1;
     try {
-      final res = await dealRepo.fetchDeals(page: _page);
+      //TODO: delete after fix
+      //adding deleay to simulate slow api calls
+      LogService.log('Triggering Load More');
+      await Future.delayed(const Duration(seconds: 10));
+
+      final res = await dealRepo.fetchDeals(page: nextPage);
+      if (rid != _refreshId) return; // a refresh happened, ignore this page
+      _page = nextPage;
       _totalPages = res.totalPages;
       deals.addAll(res.items);
     } catch (e) {
       LogService.error('loadMore failed', e);
-      _page--;
+    } finally {
+      if (rid == _refreshId) _isFetchingMore = false;
+      refreshController.loadComplete();
     }
-    _isFetchingMore = false;
-    refreshController.loadComplete();
   }
 
   void scrollToTop() {
-    scrollController.animateTo(0,
-        duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+    scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
   }
 
   @override
