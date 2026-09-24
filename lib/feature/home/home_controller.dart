@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
@@ -38,16 +36,6 @@ class HomeController extends GetxController {
     super.onInit();
     scrollController.addListener(_onScroll);
     _initialLoad();
-    _debugTrace();
-  }
-
-  void _debugTrace() {
-    Timer.periodic(const Duration(seconds: 2), (_) {
-      final c = PaintingBinding.instance.imageCache;
-      final mb = c.currentSizeBytes / 1048576;
-      LogService.log('MEM deals=${deals.length} cache=${mb.toStringAsFixed(1)}MB '
-          'images=${c.currentSize}');
-    });
   }
 
   void _onScroll() {
