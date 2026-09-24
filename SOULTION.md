@@ -59,7 +59,7 @@ whole session and still run on every cart change. The leak remains.
 ### RES-101: Search shows results for the wrong query
 
 **Repro:** Open Search and type "sushi" quickly. The final list often does not
-match the text box. TODO: note how many tries and what you saw in the console.
+match the text box. 
 
 **Root cause:** Each keystroke starts a new request and nothing checks that the
 response is still the latest one. The fake API answers short queries more
@@ -100,7 +100,7 @@ Before the fix, the console showed:
 The delayed `loadMore` also sent `GET /deals?page=1` instead of page 2,
 because the refresh had reset `_page` while it was waiting.
  
-After the fix: TODO paste the console lines from the same test showing the
+After the fix: the
 stale `loadMore` result is ignored (no new `Page:` line, Total stays 20,
 Dupes 0).
  
@@ -176,6 +176,84 @@ with a second market. Fixing only the label format in the presentation layer als
   earlier keep the old zone until the data is reloaded.
 
 ---
+### RES-105: Home feed is janky and memory keeps climbing
+ 
+**Repro:** Scroll the home feed on a slow physical Android device in profile
+mode (`flutter run --profile`,). I added
+temporary logs (a `debugPrint` in `HomeScreen.build` and `DealCard.build`, and
+a timer that prints the deal count and the image cache size and image count).
+I measured with the DevTools Memory tab and the console.
+ 
+**Root causes (three):**
+1. **One `Obx` around the whole `Scaffold`.** It read `scrollOffset`, which
+   changes on every scroll tick. So the app bar, the flash rail and every
+   visible card rebuilt on every tick, even though only two facts were needed:
+   offset above 4 (app bar shadow) and above 800 (scroll-to-top button).
+2. **The feed was a `ListView` with a `children` list.** Each rebuild (one
+   per scroll tick because of cause 1) created a `DealCard` widget for every
+   loaded deal and copied the list in `visibleDeals`, so the cost per frame
+   grew with each page loaded. (I first thought this built every card at once.
+   That was wrong: Flutter only builds the cards near the viewport. The
+   cost is the per-rebuild allocation, which the measurements support.)
+3. **Full-size image decoding.** The API sends 1600x1200 images shown at about
+   160 px high, and `CachedNetworkImage` had no `memCacheWidth`. Each image was
+   decoded at full size, so the image cache filled almost at once.
+**Before (measured):**
+- Console: the same visible `DealCard`s were rebuilt again and again while
+  scrolling. `Home Screen has been built` appeared every 34 to 130 ms, each
+  pass rebuilding all visible cards and taking about 15 ms, which is most of a
+  16 ms frame.
+- Image cache: 95.2 MB with 13 images at 20 deals, and exactly the same at 80
+  and 120 deals. That is about 7.3 MB per image, a full 1600x1200 decode. The
+  cache was full at 13 images, so scrolling likely evicts and re-decodes
+  images (not measured directly).
+- RAM: RSS about 190 to 260 MB during scrolling, and 365 MB in one earlier
+  run. This device varies a lot between runs.
+
+**Fix (three separate commits, measured after each):**
+1. `isScrolled` and `showScrollToTop` bools that change only when a threshold is
+   crossed. `Obx` now wraps only the app bar, the body data and the
+   scroll-to-top button, not the whole screen.
+2. `CustomScrollView` with `SliverList.builder`, so only visible cards are
+   built and `visibleDeals` is copied only when `deals` or the filter change.
+3. `memCacheWidth` in `TheNetworkImage`, from the real layout width
+   (read with `LayoutBuilder`) times the device pixel ratio. I set only the
+   width so the aspect ratio is kept.
+**After (measured):**
+- Console: each `DealCard` is built once when it scrolls into view, seconds
+  apart, and no repeated `Home Screen has been built` lines appear.
+- Image cache: 46.6 MB with 40 images at 40 deals; 52.8 to 57.8 MB with 45 to
+  49 images at 60 deals. That is about 1.2 MB per image, about 6 times smaller.
+  With the same 100 MB limit, about 6 times more images fit in the cache.
+| | Before | After |
+|---|---|---|
+| Image cache at 40 to 60 deals | 95.2 MB, 13 images | 46.6 to 57.8 MB, 40 to 49 images |
+| Size per decoded image | about 7.3 MB | about 1.2 MB |
+| Home screen rebuilds while scrolling | every 34 to 130 ms | none seen |
+ 
+Screenshots: TODO add to `docs/res105/` and link here.
+ 
+**What did not change (honest note):** RSS and GC counts looked similar between
+runs and are within this device's normal variation, so I do not claim an
+improvement there. The image cache limit is the same 100 MB, so at very deep
+scroll the total still approaches it. The gain is that images are much smaller,
+so it takes far longer to reach the limit and images are less likely to be
+evicted and decoded again.
+ 
+**Rejected alternative:** Lowering `imageCache.maximumSizeBytes` on its own. It
+caps memory, but each image would still be decoded at full size, so fewer
+images would fit and they would be decoded again more often. It treats the
+symptom. It could be added on top of right-sized images if a tighter memory
+limit is needed.
+ 
+**Edge cases:**
+- Handled: the "Pickup today" filter, pull to refresh, load more, the app bar
+  shadow and the scroll-to-top button still work.
+- Not handled: precaching images ahead of the scroll, and the cost of the
+  shimmer placeholder animation while many images load.
+- Not handled: very high pixel ratio devices decode larger images. I did not
+  cap the ratio.
+---
 
 ## Time spent
 
@@ -187,6 +265,7 @@ with a second market. Fixing only the label format in the presentation layer als
 | RES-101 | ~35 mins |
 | RES-104 | ~1hr 30 mins |
 | RES-106 | ~20 mins |
+| RES-105 | ~2 hr |
 | **Total** | **~210 mins** |
 
 ## With one more day
