@@ -9,17 +9,16 @@ class PickupWindowModel {
 
   factory PickupWindowModel.fromJson(Map<String, dynamic> json) {
     return PickupWindowModel(
-      start: DateTime.parse(json['start'] as String? ?? ''),
-      end: DateTime.parse(json['end'] as String? ?? ''),
+      start: DateTime.parse(json['start'] as String? ?? '').toLocal(),
+      end: DateTime.parse(json['end'] as String? ?? '').toLocal(),
     );
   }
 
   /// Human readable label, e.g. "17:30 – 21:00".
-  String get label =>
-      '${DateFormat('HH:mm').format(start)} – ${DateFormat('HH:mm').format(end)}';
+  String get label => '${DateFormat('HH:mm').format(start)} – ${DateFormat('HH:mm').format(end)}';
 
   /// Whether pickup starts today.
-  bool get isToday => start.day == DateTime.now().day;
+  bool get isToday => (start.day == DateTime.now().day) && (start.month == DateTime.now().month) && (start.year == DateTime.now().year);
 
   /// Whether the store is currently accepting pickups.
   bool get isOpenNow {
