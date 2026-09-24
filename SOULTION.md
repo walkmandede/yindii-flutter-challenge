@@ -55,7 +55,35 @@ whole session and still run on every cart change. The leak remains.
 - Not handled: the open page still re-checks stock when the cart changes for
   a different deal. 
 ------
- 
+
+### RES-101: Search shows results for the wrong query
+
+**Repro:** Open Search and type "sushi" quickly. The final list often does not
+match the text box. TODO: note how many tries and what you saw in the console.
+
+**Root cause:** Each keystroke starts a new request and nothing checks that the
+response is still the latest one. The fake API answers short queries more
+slowly than long ones, so the reply for "s" can arrive after the reply for
+"sushi" and overwrite it. `isLoading` had the same problem: the first request
+to finish set it to false while newer requests were still running.
+
+**Fix:** Give each input change an increasing request id. After the `await`,
+ignore the result if the id is no longer the newest. Only the newest request
+can change `results` or `isLoading`. I also added a 300 ms debounce to send
+fewer requests, and cancel the debounce timer in `onClose`.
+
+**Rejected alternative:** Debounce only. It is the classic debounce drawback. It reduces the problem but does not
+remove it, because a slow request from earlier can still finish after a fast
+one. The request id is what makes the result correct.
+
+**Edge cases:**
+- Handled: clearing the text while a request is in flight. The clear bumps
+  the id, so a late result cannot fill the list again.
+- Handled: an error from an old request is ignored.
+- Not handled: cancelling the HTTP request itself. The fake API has no cancel,
+  so I only ignore the old result.
+
+------
 
 ## Time spent
 
