@@ -21,25 +21,30 @@ class TheNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: borderRadius ?? BorderRadius.zero,
-      child: CachedNetworkImage(
-        imageUrl: url,
-        width: width,
-        height: height,
-        fit: fit,
-        placeholder: (context, _) => Shimmer.fromColors(
-          baseColor: Colors.grey.shade300,
-          highlightColor: Colors.grey.shade100,
-          child: Container(width: width, height: height, color: Colors.white),
-        ),
-        errorWidget: (context, _, __) => Container(
+    return LayoutBuilder(builder: (context, constraints) {
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      final w = (width != null && width!.isFinite) ? width! : constraints.maxWidth;
+      return ClipRRect(
+        borderRadius: borderRadius ?? BorderRadius.zero,
+        child: CachedNetworkImage(
+          imageUrl: url,
           width: width,
           height: height,
-          color: Colors.grey.shade200,
-          child: const Icon(Icons.image_not_supported_outlined),
+          fit: fit,
+          memCacheWidth: w.isFinite ? (w * dpr).round() : null,
+          placeholder: (context, _) => Shimmer.fromColors(
+            baseColor: Colors.grey.shade300,
+            highlightColor: Colors.grey.shade100,
+            child: Container(width: width, height: height, color: Colors.white),
+          ),
+          errorWidget: (context, _, __) => Container(
+            width: width,
+            height: height,
+            color: Colors.grey.shade200,
+            child: const Icon(Icons.image_not_supported_outlined),
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }
