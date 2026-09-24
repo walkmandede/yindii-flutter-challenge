@@ -84,6 +84,64 @@ one. The request id is what makes the result correct.
   so I only ignore the old result.
 
 ------
+### RES-104: Duplicate deals in the home feed
+ 
+**Repro:** My low-end Android device was too slow to time the gesture (pull
+to refresh while page 2 is loading), so I forced the timing from code. I added
+a temporary 10 second delay at the start of `loadMore` and a listener on
+`deals` that logs the total, unique and duplicate counts. The delay is
+artificial, but real network latency creates the same race with a shorter
+window. I started `loadMore`, then pulled to refresh during the delay.
+ 
+Before the fix, the console showed:
+- After the refresh: `Page: 1, Total: 20, Uniques: 20, Dupes: 0`
+- When the delayed `loadMore` finished: `Page: 1, Total: 40, Uniques: 20,
+  Dupes: 20`
+The delayed `loadMore` also sent `GET /deals?page=1` instead of page 2,
+because the refresh had reset `_page` while it was waiting.
+ 
+After the fix: TODO paste the console lines from the same test showing the
+stale `loadMore` result is ignored (no new `Page:` line, Total stays 20,
+Dupes 0).
+ 
+**Root cause:** `refreshDeals` and `loadMore` share `_page`, `_totalPages`,
+`deals` and `_isFetchingMore`, but they do not know about each other. Refresh
+resets `_page = 1` and replaces the list. A `loadMore` that was already
+running then finishes and appends its result with `addAll` onto the fresh
+list. It can also read `_page` after the refresh reset it, which is why the
+log shows page 1 being fetched and appended a second time. The catch block
+has a similar problem: `_page--` after a refresh can push `_page` to 0.
+Because the catalog has a fixed size, this is how the feed ends up with more
+items than the catalog contains.
+ 
+**Fix:** A counter, `_refreshId`, that increases on every refresh.
+- `refreshDeals` increments it, and after the `await` it drops its result if
+  a newer refresh has started.
+- `loadMore` remembers the counter when it starts and drops its result if a
+  refresh happened in the meantime.
+- `_page` is only updated after a successful, current response. `loadMore`
+  computes `nextPage` before the request instead of doing `_page++` and
+  `_page--`.
+- `loadMore` does not run while a refresh is in progress (`_isRefreshing`).
+- A stale request cannot reset `_isFetchingMore` or `_isRefreshing` of a
+  newer one, because those resets are also checked against the counter.
+**Rejected alternative:** Remove duplicates by id when adding items. The list
+would look right, but `_page` and `_totalPages` would still be wrong, so
+paging would break later. It hides the symptom without fixing the shared
+state.
+ 
+Also rejected: ignoring pull to refresh while `loadMore` is running. The user
+pulls and nothing happens, which is worse than fixing the race.
+ 
+**Edge cases:**
+- Handled: refresh during `loadMore`, `loadMore` during refresh, and a failed
+  `loadMore` after a refresh.
+- Handled: two refreshes at once. The newest one wins.
+- Not handled: cancelling the HTTP request itself. The fake API has no
+  cancel, so I only ignore the old result.
+- Not handled: error handling for a failed refresh (the refresh indicator is
+  not completed on error). That is a separate issue.
+---
 
 ## Time spent
 
@@ -92,7 +150,9 @@ one. The request id is what makes the result correct.
 | Setup (Flutter, Java, repo) | ~30 mins |
 | RES-102 | ~10 mins |
 | RES-103 | ~25 mins |
-| **Total** | **~40 mins** |
+| RES-101 | ~35 mins |
+| RES-104 | ~1hr 30 mins |
+| **Total** | **~190 mins** |
 
 ## With one more day
 - TBD
