@@ -45,18 +45,6 @@ class HomeController extends GetxController {
   Future<void> _initialLoad() async {
     isLoading.value = true;
 
-    //TODO: delete after fix
-    //listening deals changes to check duplicates
-    deals.listen(
-      (p0) {
-        final ids = p0.map((p) => p.id); //cannot compare by objects yet, so by id
-        final totalCounts = ids.length;
-        final uniqueCounts = ids.toSet().length;
-        final dupes = totalCounts - uniqueCounts;
-        LogService.log('Page: $_page, Total: $totalCounts, Uniques: $uniqueCounts, Dupes: $dupes');
-      },
-    );
-
     try {
       await Future.wait([refreshDeals(), _loadFlashDeals()]);
     } catch (e) {
@@ -70,7 +58,6 @@ class HomeController extends GetxController {
   }
 
   Future<void> refreshDeals() async {
-    LogService.log('Triggering Refresh Deal');
     final rid = ++_refreshId;
     _isRefreshing = true;
     _isFetchingMore = false;
@@ -97,11 +84,6 @@ class HomeController extends GetxController {
     final rid = _refreshId;
     final nextPage = _page + 1;
     try {
-      //TODO: delete after fix
-      //adding deleay to simulate slow api calls
-      LogService.log('Triggering Load More');
-      await Future.delayed(const Duration(seconds: 10));
-
       final res = await dealRepo.fetchDeals(page: nextPage);
       if (rid != _refreshId) return; // a refresh happened, ignore this page
       _page = nextPage;
