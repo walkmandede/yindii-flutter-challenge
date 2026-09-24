@@ -142,6 +142,40 @@ pulls and nothing happens, which is worse than fixing the race.
 - Not handled: error handling for a failed refresh (the refresh indicator is
   not completed on error). That is a separate issue.
 ---
+### RES-106: Wrong pickup times; "Pickup today" filter misses deals
+
+**Repro:** The bakery that opens 06:00 to 09:30 showed "Pick up 23:00 – 02:30".
+With "Pickup today" on, some stores with a slot today were missing.
+
+**Root cause:** The backend data is correct. The API sends ISO-8601 UTC
+instants, and `DateTime.parse` on a string ending in `Z` returns a UTC
+`DateTime`. `DateFormat('HH:mm')` prints those UTC fields, so the label shows
+UTC hours. The store is in UTC+7, so 06:00 local is 23:00 UTC. Separately,
+`isToday` compared `start.day` (a UTC day of the month) with
+`DateTime.now().day` (a local day). A store that opens at 06:00 local starts
+on the previous UTC day, so it was filtered out. The check also ignored month
+and year.
+
+**Fix:** Convert the parsed instants with `toLocal()` in
+`PickupWindowModel.fromJson`, once, where the data enters the app. `isToday`
+now compares year, month and day of the local start with the local `now`.
+`isOpenNow` and `untilStart` compare instants and did not need changes.
+
+**Rejected alternative:** Hard-code UTC+7 in the app. It would always show the
+same hours, but it copies a hidden backend value into the client and breaks
+with a second market. Fixing only the label format in the presentation layer also should be rejected, because
+`isToday` would still be wrong.
+
+**Edge cases:**
+- Handled: stores that open before 07:00 local now appear in "Pickup today".
+- Handled: month and year boundaries in `isToday`.
+- Handled: overnight windows count as "today" by their start date.
+- Not handled: (Currently hardcode time offset) a device in a different time zone from the store (see the
+  decision above).
+- Not handled: (Rare Case) a time zone change while the app is running. Times parsed
+  earlier keep the old zone until the data is reloaded.
+
+---
 
 ## Time spent
 
@@ -152,7 +186,8 @@ pulls and nothing happens, which is worse than fixing the race.
 | RES-103 | ~25 mins |
 | RES-101 | ~35 mins |
 | RES-104 | ~1hr 30 mins |
-| **Total** | **~190 mins** |
+| RES-106 | ~20 mins |
+| **Total** | **~210 mins** |
 
 ## With one more day
 - TBD
