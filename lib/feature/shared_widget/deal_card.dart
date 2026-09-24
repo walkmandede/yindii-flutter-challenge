@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:rescu/util/log_service.dart';
 
 import '../../app_config.dart';
 import '../../model/deal_model.dart';
@@ -43,10 +44,7 @@ class DealCard extends StatelessWidget {
                       ),
                       child: const Text(
                         'FLASH SALE',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold),
+                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -72,32 +70,19 @@ class DealCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(deal.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600)),
+                  Text(deal.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
-                  Text(deal.storeName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 12.5, color: Colors.grey.shade600)),
+                  Text(deal.storeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.schedule,
-                          size: 14, color: Colors.grey.shade600),
+                      Icon(Icons.schedule, size: 14, color: Colors.grey.shade600),
                       const SizedBox(width: 4),
-                      Text('Pick up ${deal.pickupWindow.label}',
-                          style: TextStyle(
-                              fontSize: 12.5, color: Colors.grey.shade700)),
+                      Text('Pick up ${deal.pickupWindow.label}', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
                       const Spacer(),
                       if (deal.rating != null) ...[
-                        const Icon(Icons.star_rounded,
-                            size: 15, color: Colors.amber),
-                        Text(deal.rating!.toStringAsFixed(1),
-                            style: const TextStyle(fontSize: 12.5)),
+                        const Icon(Icons.star_rounded, size: 15, color: Colors.amber),
+                        Text(deal.rating!.toStringAsFixed(1), style: const TextStyle(fontSize: 12.5)),
                       ],
                     ],
                   ),
@@ -105,29 +90,19 @@ class DealCard extends StatelessWidget {
                   Row(
                     children: [
                       Text('฿${deal.price.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppConfig.primaryGreen)),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppConfig.primaryGreen)),
                       const SizedBox(width: 6),
                       Text('฿${deal.originalPrice.toStringAsFixed(0)}',
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade500,
-                              decoration: TextDecoration.lineThrough)),
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade500, decoration: TextDecoration.lineThrough)),
                       const Spacer(),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppConfig.primaryGreen.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text('-${deal.discountPercent}%',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppConfig.primaryGreen)),
+                        child:
+                            Text('-${deal.discountPercent}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppConfig.primaryGreen)),
                       ),
                     ],
                   ),

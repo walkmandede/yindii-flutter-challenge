@@ -15,8 +15,6 @@ class HomeScreen extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    LogService.log('HomeScreen is built');
-
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
@@ -68,8 +66,6 @@ class HomeScreen extends GetView<HomeController> {
       ),
       body: Obx(
         () {
-          LogService.log('HomeScreen body is built');
-
           return controller.isLoading.value
               ? ListView(
                   children: const [
