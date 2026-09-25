@@ -21,8 +21,8 @@ class CartItemModel {
     required this.deal,
     this.quantity = 1,
     this.reservation,
-    required this.reservationStatus,
-    required this.isLoading,
+    this.reservationStatus = ReservationStatus.pending,
+    this.isLoading = false,
   });
 
   num get lineTotal => deal.price * quantity;
