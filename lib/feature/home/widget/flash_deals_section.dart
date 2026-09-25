@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:rescu/service/flash_sale_service.dart';
+import 'package:rescu/service/ticker_service.dart';
+import 'package:rescu/util/log_service.dart';
 
 import '../../../app_config.dart';
 import '../../../model/deal_model.dart';
@@ -10,10 +13,21 @@ import '../../shared_widget/the_network_image.dart';
 ///
 /// NOTE: the countdown is currently a static "Ends soon" label — turning it
 /// into a live per-deal countdown is one of the feature tasks in PROBLEM.md.
-class FlashDealsSection extends StatelessWidget {
+class FlashDealsSection extends StatefulWidget {
   final List<DealModel> deals;
 
   const FlashDealsSection({super.key, required this.deals});
+
+  @override
+  State<FlashDealsSection> createState() => _FlashDealsSectionState();
+}
+
+class _FlashDealsSectionState extends State<FlashDealsSection> {
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,8 +40,7 @@ class FlashDealsSection extends StatelessWidget {
             children: [
               Icon(Icons.bolt, color: Colors.red, size: 20),
               SizedBox(width: 4),
-              Text('Flash sales',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              Text('Flash sales', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -36,9 +49,10 @@ class FlashDealsSection extends StatelessWidget {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: deals.length,
+            itemCount: widget.deals.length,
             itemBuilder: (context, index) {
-              final deal = deals[index];
+              final deal = widget.deals[index];
+
               return SizedBox(
                 width: 200,
                 child: Card(
@@ -54,48 +68,20 @@ class FlashDealsSection extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TheNetworkImage(
-                            url: deal.imageUrl,
-                            height: 90,
-                            width: double.infinity),
+                        TheNetworkImage(url: deal.imageUrl, height: 90, width: double.infinity),
                         Padding(
                           padding: const EdgeInsets.all(8),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(deal.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600)),
-                              Text(deal.storeName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                      fontSize: 11.5,
-                                      color: Colors.grey.shade600)),
+                              Text(deal.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              Text(deal.storeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
                               const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  Text('฿${deal.price.toStringAsFixed(0)}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppConfig.primaryGreen)),
+                                  Text('฿${deal.price.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppConfig.primaryGreen)),
                                   const Spacer(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade50,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text('Ends soon',
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.red.shade700)),
-                                  ),
+                                  _endInWidget(deal),
                                 ],
                               ),
                             ],
@@ -111,5 +97,36 @@ class FlashDealsSection extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _endInWidget(DealModel deal) {
+    final ticker = Get.find<TickerService>();
+    return Obx(() {
+      final flashSale = Get.find<FlashSaleService>();
+      if (deal.isFlashSale) flashSale.track(deal);
+      final expired = deal.isFlashSale && flashSale.isExpired(deal.id);
+      final remaining = deal.flashSaleEndsAt?.difference(ticker.now.value) ?? Duration(seconds: -1);
+
+      final h = remaining.inHours;
+      final m = remaining.inMinutes.remainder(60);
+      final s = remaining.inSeconds.remainder(60);
+      final text = h > 0
+          ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+          : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: expired ? Colors.grey.shade600 : Colors.red.shade600,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: expired
+            ? const Text('EXPIRED', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))
+            : Text(
+                text,
+                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+      );
+    });
   }
 }

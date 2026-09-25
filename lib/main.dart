@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:rescu/service/flash_sale_service.dart';
+import 'package:rescu/service/ticker_service.dart';
 
 import 'app_config.dart';
 import 'repository/deal_repo.dart';
@@ -23,6 +25,9 @@ Future<void> initDependencies() async {
   Get.lazyPut(() => DealRepo(api: Get.find()), fenix: true);
   Get.lazyPut(() => StoreRepo(api: Get.find()), fenix: true);
   Get.lazyPut(() => OrderRepo(api: Get.find()), fenix: true);
+
+  Get.put(TickerService(), permanent: true);
+  Get.put(FlashSaleService(ticker: Get.find(), cartService: Get.find()), permanent: true);
 }
 
 class RescuApp extends StatelessWidget {
