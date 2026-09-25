@@ -292,6 +292,39 @@ argument is missing. The ticket rules this out.
   failed-then-retried load.
 
 ---
+### F-1: Live flash-sale countdowns
+
+**What I built:** replaced the static "Ends soon" badge with a real
+countdown (`mm:ss` / `hh:mm:ss`) on flash deals — home feed, flash rail,
+and details screen.
+
+**How it works:** one shared `TickerService` (`Timer.periodic`, 1s) instead
+of a timer per card. `FlashSaleService` tracks which deals have expired and
+is the single place that removes an expired deal from the cart, so it only
+happens once even if the deal is showing on more than one screen at a time.
+The badge itself (`FlashSaleEndInWidget`) is one shared widget used in all
+three places, so the countdown formatting only lives in one spot.
+
+**Why one timer, not one per card:** same lesson as RES-102 — 100+ cards
+with their own timers means 100+ rebuild triggers a second. One ticker
+means each countdown only rebuilds its own small `Text`, not the card.
+
+**Mistakes I caught along the way:**
+- Had `Get.find` and `track(deal)` running inside the `Obx` builder, so
+  it re-ran every tick for nothing. Moved it above the `Obx`.
+- Wrote the `mm:ss` formatting twice (rail + card) before pulling it into
+  one shared widget.
+
+**Rejected alternative:** a timer per countdown widget. Simple, but it's
+the RES-102 bug pattern at scale, and it would fail the "100+ countdowns
+stay smooth" requirement.
+
+**Edge cases:** handled — a deal already expired on first build; a deal
+shown on two screens at once only gets removed from the cart once.
+
+
+
+---
 
 ## Time spent
 
