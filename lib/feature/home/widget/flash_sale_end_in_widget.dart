@@ -41,7 +41,7 @@ class FlashSaleEndInWidget extends StatelessWidget {
         child: expired
             ? const Text('EXPIRED', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))
             : Text(
-                text,
+                'End In $text',
                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
               ),
       );

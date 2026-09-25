@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:rescu/feature/home/widget/flash_sale_end_in_widget.dart';
 
 import '../../app_config.dart';
 import '../shared_widget/the_network_image.dart';
@@ -71,6 +72,8 @@ class DealDetailsScreen extends GetView<DealDetailsController> {
                               )),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      FlashSaleEndInWidget(deal: deal),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.all(12),
