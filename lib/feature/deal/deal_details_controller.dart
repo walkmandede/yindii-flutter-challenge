@@ -6,6 +6,12 @@ import '../../service/analytics_service.dart';
 import '../../service/cart_service.dart';
 import '../../util/log_service.dart';
 
+enum DealDetialsScreenState {
+  loading,
+  success,
+  failure,
+}
+
 class DealDetailsController extends GetxController {
   final DealRepo dealRepo;
   final CartService cartService;
@@ -23,18 +29,45 @@ class DealDetailsController extends GetxController {
   final _quantityLeft = RxnInt();
   int? get quantityLeft => _quantityLeft.value;
 
+  Rx<DealDetialsScreenState> screenState = DealDetialsScreenState.loading.obs;
+
   @override
   void onInit() {
     super.onInit();
-    deal = Get.arguments as DealModel;
-    _quantityLeft.value = deal.quantityLeft;
-    analytics.logEvent('deal_details_view', {
-      'deal_id': deal.id,
-      'source': Get.parameters['source'] ?? 'unknown',
-    });
-    // Whenever the cart changes, re-check this deal's remaining stock so the
-    // details screen never shows stale availability.
-    _cartWorker = ever(cartService.itemCount, (_) => _recheckAvailability());
+
+    loadDeal();
+  }
+
+  Future<void> loadDeal() async {
+    try {
+      final args = Get.arguments;
+      final id = int.tryParse(Get.parameters['id'] ?? '');
+      final DealModel loaded;
+      if (args is DealModel) {
+        loaded = await dealRepo.fetchById(args.id); //load again to prevent stale data
+      } else if (id != null) {
+        loaded = await dealRepo.fetchById(id);
+      } else {
+        throw ArgumentError('Missing or invalid deal id');
+      }
+      if (isClosed) return;
+      deal = loaded;
+      screenState.value = DealDetialsScreenState.success;
+      _quantityLeft.value = loaded.quantityLeft;
+
+      analytics.logEvent('deal_details_view', {
+        'deal_id': loaded.id,
+        'source': Get.parameters['source'] ?? 'unknown',
+      });
+
+      // Whenever the cart changes, re-check this deal's remaining stock so the
+      // details screen never shows stale availability.
+      _cartWorker = ever(cartService.itemCount, (_) => _recheckAvailability());
+    } catch (e) {
+      if (isClosed) return;
+      LogService.error('load deal failed', e);
+      screenState.value = DealDetialsScreenState.failure;
+    }
   }
 
   Future<void> _recheckAvailability() async {
