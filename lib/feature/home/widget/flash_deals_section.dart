@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:rescu/feature/home/widget/flash_sale_end_in_widget.dart';
 import 'package:rescu/service/flash_sale_service.dart';
 import 'package:rescu/service/ticker_service.dart';
 import 'package:rescu/util/log_service.dart';
@@ -81,7 +82,7 @@ class _FlashDealsSectionState extends State<FlashDealsSection> {
                                 children: [
                                   Text('฿${deal.price.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppConfig.primaryGreen)),
                                   const Spacer(),
-                                  _endInWidget(deal),
+                                  FlashSaleEndInWidget(deal: deal),
                                 ],
                               ),
                             ],
@@ -97,36 +98,5 @@ class _FlashDealsSectionState extends State<FlashDealsSection> {
         ),
       ],
     );
-  }
-
-  Widget _endInWidget(DealModel deal) {
-    final ticker = Get.find<TickerService>();
-    return Obx(() {
-      final flashSale = Get.find<FlashSaleService>();
-      if (deal.isFlashSale) flashSale.track(deal);
-      final expired = deal.isFlashSale && flashSale.isExpired(deal.id);
-      final remaining = deal.flashSaleEndsAt?.difference(ticker.now.value) ?? Duration(seconds: -1);
-
-      final h = remaining.inHours;
-      final m = remaining.inMinutes.remainder(60);
-      final s = remaining.inSeconds.remainder(60);
-      final text = h > 0
-          ? '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
-          : '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: expired ? Colors.grey.shade600 : Colors.red.shade600,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: expired
-            ? const Text('EXPIRED', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))
-            : Text(
-                text,
-                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-      );
-    });
   }
 }
