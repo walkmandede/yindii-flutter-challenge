@@ -30,7 +30,7 @@ class _DealImpressionWrapperState extends State<DealImpressionWrapper> {
   @override
   Widget build(BuildContext context) {
     return VisibilityDetector(
-      key: Key('impression-${meta.source}-${meta.dealId}-${meta.position}'),
+      key: Key('impression-${meta.source.name}-${meta.dealId}-${meta.position}'),
       onVisibilityChanged: (info) {
         if (info.visibleFraction >= widget.visibaleFractionThreashold) {
           _visibleTimer ??= Timer(Duration(milliseconds: widget.visibleDurationThreasholdInMs), () {
