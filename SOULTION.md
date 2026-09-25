@@ -338,7 +338,8 @@ shown on two screens at once only gets removed from the cart once.
 | RES-106 | ~20 mins |
 | RES-105 | ~2 hr |
 | RES-107 | ~15 mins |
-| **Total** | **~225 mins** |
+| F-1 | ~35 mins |
+| **Total** | **~260 mins** |
 
 ## With one more day
 - TBD
