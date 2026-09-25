@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+import 'package:rescu/feature/shared_widget/deal_impression_wrapper.dart';
+import 'package:rescu/service/deal_impression_service.dart';
 import 'package:rescu/util/log_service.dart';
 
 import '../../app_config.dart';
@@ -98,7 +100,16 @@ class HomeScreen extends GetView<HomeController> {
                           ],
                         ),
                       ),
-                      ...controller.visibleDeals.map((deal) => DealCard(deal: deal)),
+                      ...controller.visibleDeals.map(
+                        (deal) => DealImpressionWrapper(
+                          meta: DealImpressionMeta(
+                            dealId: deal.id,
+                            position: controller.visibleDeals.indexOf(deal),
+                            source: DealImpressionSource.homeFeed,
+                          ),
+                          child: DealCard(deal: deal),
+                        ),
+                      ),
                       const SizedBox(height: 24),
                     ],
                   ),
