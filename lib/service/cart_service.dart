@@ -21,6 +21,12 @@ class CartService extends GetxService {
   final items = <CartItemModel>[].obs;
   final itemCount = 0.obs;
 
+  @override
+  void onInit() {
+    super.onInit();
+    ever(ticker.now, (_) => checkForExpiredHolds());
+  }
+
   Future<void> _reserveLine(
     CartItemModel item, {
     required int previousQuantityOnFailure,
