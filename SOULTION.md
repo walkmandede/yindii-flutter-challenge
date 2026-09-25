@@ -230,9 +230,7 @@ I measured with the DevTools Memory tab and the console.
 | Image cache at 40 to 60 deals | 95.2 MB, 13 images | 46.6 to 57.8 MB, 40 to 49 images |
 | Size per decoded image | about 7.3 MB | about 1.2 MB |
 | Home screen rebuilds while scrolling | every 34 to 130 ms | none seen |
- 
-Screenshots: TODO add to `docs/res105/` and link here.
- 
+  
 **What did not change (honest note):** RSS and GC counts looked similar between
 runs and are within this device's normal variation, so I do not claim an
 improvement there. The image cache limit is the same 100 MB, so at very deep
@@ -255,6 +253,46 @@ limit is needed.
   cap the ratio.
 ---
 
+### RES-107: Deep link opens to a crash
+
+**Repro:** Home, overflow menu, "Simulate deep link…", open
+`rescu://open/deal?id=42&source=push`. The app threw
+`type 'Null' is not a subtype of type 'DealModel'`. 
+
+**Root cause:** `DealDetailsController.onInit` did
+`Get.arguments as DealModel`. The home feed passes the full model as an
+argument, but a deep link only carries `id` and `source` in the URL, so
+`Get.arguments` is null and the cast throws.
+
+**Fix:** Added a `DealDetialsScreenState` (loading, success, failure).
+`loadDeal()` resolves the deal either way: from `Get.arguments` if it is a
+`DealModel`, otherwise by fetching `Get.parameters['id']` with
+`dealRepo.fetchById`. The screen shows a spinner while loading and an error
+state with "Try again" only on a real failure. The cart-change worker is
+created inside `loadDeal()`, guarded with `??=` so it is set up exactly once,
+whether the first load or a retry succeeds. This also fixes a second bug I
+found while testing: an earlier version created the worker only after the
+very first `loadDeal()` call, so a failed load followed by a successful retry
+left the page never re-checking stock for the rest of its life.
+
+**Decision:** The code always calls
+`dealRepo.fetchById` even when the feed already passed the full model, to
+avoid showing stale data. The trade-off is an extra request and some latency
+on every open from the feed, where opening used to be instant.
+
+**Rejected alternative:** Redirect to Home or show an error page when the
+argument is missing. The ticket rules this out.
+
+**Edge cases:**
+- Handled: unknown id (404), a missing or non-numeric id, and a failed fetch
+  all show the error state with a retry button instead of crashing.
+- Handled: leaving the page while a request is in flight (`isClosed` checks).
+- Handled: a cart-change worker is never created before `deal` is set, so it
+  cannot crash on an unset value, and it is created exactly once even after a
+  failed-then-retried load.
+
+---
+
 ## Time spent
 
 | Desc | Time Spent |
@@ -266,7 +304,8 @@ limit is needed.
 | RES-104 | ~1hr 30 mins |
 | RES-106 | ~20 mins |
 | RES-105 | ~2 hr |
-| **Total** | **~210 mins** |
+| RES-107 | ~15 mins |
+| **Total** | **~225 mins** |
 
 ## With one more day
 - TBD
