@@ -58,6 +58,15 @@ whole session and still run on every cart change. The leak remains.
 
 ### RES-101: Search shows results for the wrong query
 
+**Before**
+<br/>
+<img src="screenshots/101_before.jpg" alt="101 Before" width="600">
+<br/>
+**After**
+<br/>
+<img src="screenshots/101_after.jpg" alt="101 After" width="600">
+
+
 **Repro:** Open Search and type "sushi" quickly. The final list often does not
 match the text box. 
 
@@ -85,6 +94,15 @@ one. The request id is what makes the result correct.
 
 ------
 ### RES-104: Duplicate deals in the home feed
+
+**Before**
+<br/>
+<img src="screenshots/104_before.jpg" alt="104 Before" width="600">
+<br/>
+**After**
+<br/>
+<img src="screenshots/104_after.jpg" alt="104 After" width="600">
+
  
 **Repro:** My low-end Android device was too slow to time the gesture (pull
 to refresh while page 2 is loading), so I forced the timing from code. I added
@@ -144,6 +162,15 @@ pulls and nothing happens, which is worse than fixing the race.
 ---
 ### RES-106: Wrong pickup times; "Pickup today" filter misses deals
 
+**Before**
+<br/>
+<img src="screenshots/106_before.jpg" alt="106 Before" width="300">
+<br/>
+**After**
+<br/>
+<img src="screenshots/106_after.jpg" alt="106 After" width="300">
+
+ 
 **Repro:** The bakery that opens 06:00 to 09:30 showed "Pick up 23:00 – 02:30".
 With "Pickup today" on, some stores with a slot today were missing.
 
@@ -177,6 +204,17 @@ with a second market. Fixing only the label format in the presentation layer als
 
 ---
 ### RES-105: Home feed is janky and memory keeps climbing
+
+**Before**
+<br/>
+<img src="screenshots/105_before_1.jpg" alt="105 Before 1" width="600">
+<img src="screenshots/105_before_2.jpg" alt="105 Before 2" width="600">
+<br/>
+**After**
+<br/>
+<img src="screenshots/105_after_2.jpg" alt="105 After_2" width="600">
+
+ 
  
 **Repro:** Scroll the home feed on a slow physical Android device in profile
 mode (`flutter run --profile`,). I added
@@ -294,6 +332,9 @@ argument is missing. The ticket rules this out.
 ---
 ### F-1: Live flash-sale countdowns
 
+<img src="screenshots/f1.jpg" alt="F1" width="300">
+
+
 **What I built:** replaced the static "Ends soon" badge with a real
 countdown (`mm:ss` / `hh:mm:ss`) on flash deals — home feed, flash rail,
 and details screen.
@@ -327,6 +368,9 @@ shown on two screens at once only gets removed from the cart once.
 ---
 ### F-2: Impression tracking
 
+<img src="screenshots/f2.jpg" alt="F2" width="300">
+
+
 **What I built:** logs a `deal_impression` event when a deal card has been
 ≥50% visible for 1 continuous second, on the home feed, flash rail, and
 search results. At most once per deal per session, across all screens.
@@ -353,6 +397,10 @@ only logs once.
 
 ---
 ### F-3: Stock reservations with optimistic UI
+
+<img src="screenshots/f3_1.jpg" alt="F3 Screenshot" width="300">
+<img src="screenshots/f3_2.jpg" alt="F3 Screenshot" width="300">
+<img src="screenshots/f3_3.jpg" alt="F3 Screenshot" width="300">
 
 **What I built:** adding to the bag now makes a real reservation on the
 backend instead of just being local. The item shows up in the bag right
@@ -400,7 +448,108 @@ exact problem the 5-minute limit exists to prevent.
   place — the API has no endpoint for that, so this is release-and-reserve
   in the same call.
 
+---
 
+## AI usage log
+
+**Tools used:**
+- Claude, for two things: (1) figuring out how to actually measure RAM usage
+  for RES-105 when I couldn't get a straight answer from DevTools on my own,
+  and (2) designing and implementing F-3 (reservations) from scratch — I
+  walked through the architecture with it first, then had it generate the
+  code, then tested and fixed bugs in it myself rather than trusting it
+  blind.
+- Also used it to turn my own rough, unorganized notes into this
+  `solutions.md` file — I gave it the plain facts of what I did and it wrote
+  them up properly.
+
+**Two concrete examples where AI was wrong or misleading:**
+
+1. **RES-105 root cause, partially wrong on the first pass.** When
+   diagnosing why the home feed was janky, the AI's first explanation was
+   that the `ListView` with a `.map()`-built `children` list was building
+   *every* loaded deal card at once, no matter how far down the list it was.
+   That's not actually how `ListView(children: [...])` works — Flutter only
+   calls `build()` on cards near the viewport regardless of how the list was
+   constructed. The AI caught and corrected this itself mid-explanation once
+   I started actually measuring with `debugPrint`/`adb logcat` instead of
+   just accepting the claim — the real cost was the *rebuild frequency*
+   (from the one big `Obx`), not eager building. I kept the corrected
+   version in the RES-105 write-up above and didn't act on the wrong one.
+
+2. **In F-3, GetX `Obx` crash, wrong on two theories before the real cause.** While
+   wiring the shared countdown widget (`CountdownLabelWidget`) that F-3's
+   cart screen also reuses for each line's hold countdown, I hit a GetX
+   runtime crash: "the improper use of a GetX has been detected... you
+   probably did not insert any observable variables into GetX/Obx." I asked
+   the AI what was wrong. First theory: that `RxSet.contains()` might not
+   internally route through GetX's tracked getter, so reading
+   `expiredDealIds.contains(dealId)` wasn't actually registering as an
+   observed value. Second theory, after I said the first fix didn't work:
+   missing `Key`s on the list items were causing Flutter to reuse an
+   `Obx`'s element for a different deal between rebuilds. I tried the
+   second one too — still crashed. The actual cause was much simpler than
+   either: `deal.isFlashSale && flashSale.isExpired(deal.id)` short-circuits
+   on `&&`, so for a deal with a null `flashSaleEndsAt`, the *only* reactive
+   read in that `Obx`'s builder never ran at all — the widget just wasn't
+   guarded against being built for a non-flash deal in the first place. I
+   found this myself by adding a plain `if (deal.flashSaleEndsAt == null)
+   return const SizedBox.shrink();` guard before the `Obx`, which fixed it
+   immediately, and only afterward matched it back to what the error message
+   had been saying from the start. Kept neither of the AI's first two fixes
+   in the final code.
+
+**How I verified AI output generally:** for RES-105 I didn't trust any
+before/after claim without a number behind it — I measured with DevTools and
+`adb shell dumpsys meminfo` myself rather than accepting a description of
+what "should" happen. For F-3, I ran through every code path by hand
+(successful reserve, 409 failure, removing a line, letting a hold expire)
+rather than assuming the generated code worked because it compiled.
+
+---
+
+## Design questions
+
+**Q1:** A `State`'s lifecycle is tied to the widget tree — Flutter creates
+it with `initState()` when the widget is first built and calls `dispose()`
+when that widget is permanently removed from the tree, and it's Flutter's
+job to time this. A `GetxController`'s lifecycle is tied to GetX's own
+dependency system — `onInit()` runs when GetX first constructs the
+controller (via `Get.put`/`lazyPut`/binding) and `onClose()` runs when GetX
+decides to delete it (route left and no longer referenced, or the app
+closing for a `permanent` one). These aren't the same clock, and it's easy
+to assume a `GetxController` cleans up automatically the way a well-behaved
+`State` does. RES-103 exists because of exactly this: the controller
+subscribed to `cartService.itemCount` with `ever(...)`, and that
+subscription lived on `CartService` — a permanent, app-lifetime service —
+not on the page controller. Leaving the page destroyed the controller, but
+nothing told the subscription itself to stop, because nobody had written the
+`onClose()` cleanup a `GetxController` needs just as explicitly as a
+`State.dispose()` does.
+
+**Q2:** Wrapping a large subtree in one `Obx` means *any* observable read
+anywhere inside that subtree triggers a rebuild of the *entire* subtree, not
+just the piece that actually changed. RES-105 was this exact mistake — the
+whole `Scaffold` was inside an `Obx` reading `scrollOffset`, so every scroll
+tick rebuilt the app bar, the flash rail, and every visible card, when only
+a tiny "offset > threshold" boolean actually needed to change anything
+visible. I decide how tightly to scope reactivity by asking, for each piece
+of UI: if I comment out just this widget, does the reason for rebuilding
+disappear? If yes, the `Obx` belongs around that widget alone, not its
+parent. The countdown widgets from F-1/F-3 follow this: each line's `Obx`
+wraps only its own `Text`, so a hundred countdowns ticking doesn't touch
+anything above them.
+
+**Q3:** A unit test on `PickupWindowModel` alone, independent of any widget:
+feed it the bakery's real JSON (`start`/`end` as the UTC strings the API
+actually sends), run it with a fixed, non-UTC time zone (e.g.
+`TZ=America/New_York flutter test`, or however the test environment pins the
+zone), and assert `label` reads `"06:00 - 09:30"` and `isToday` is correct
+for a few `now` values straddling midnight. To make this possible, `isToday`
+needs to stop reading `DateTime.now()` directly inside the model — it should
+either take `now` as a parameter or go through an injectable clock, so the
+test can control it instead of depending on whatever moment the test happens
+to run.
 
 ---
 
@@ -419,7 +568,28 @@ exact problem the 5-minute limit exists to prevent.
 | F-1 | ~35 mins |
 | F-2 | ~1hr 30 mins |
 | F-3 | ~2hr 10 mins |
-| **Total** | **~420 mins** |
+| **Total** | **~600 mins** |
 
 ## With one more day
-- TBD
+- **F-3:** add the missing "Reserve again" button on an expired line
+  (right now expiring just blocks checkout with no way back except
+  removing the item), and add the `isLoading` guard back to the cart
+  screen's +/- buttons so a line's reservation call can't be double-fired.
+- **RES-105:** finish the deeper-scroll evidence (80/100/120 deals, not
+  just 40-60) to show the image cache still plateaus near the 100MB limit
+  even with the fix, and confirm all the numbers were taken on Flutter
+  3.27.0, not whatever version the DevTools URL showed earlier.
+- **RES-107:** actually test the deep link cold-start case (`adb` with the
+  app fully closed first) and note what Back does from a deep-linked page
+  — both still marked TODO.
+- **General cleanup:** a couple of leftover dead-code items I noticed
+  along the way (an unused `initState` on `FlashDealsSection`, a couple of
+  internal `get/src/...` imports instead of the public `package:get/get.dart`
+  barrel) that don't affect behavior but I'd tidy up before shipping.
+- **Platform adaptation:** everything so far was built and tested on
+  Android only. I'd want a pass to check iOS-specific behavior — safe area
+  insets around notches/home indicators, whether Material widgets
+  (`Scaffold`, `SnackBar`, dialogs) feel out of place next to iOS system
+  UI, back-gesture behavior versus the Android back button, and whether any
+  spacing/sizing assumptions I made only hold on the Android devices I
+  actually ran on.
