@@ -123,6 +123,19 @@ class CartService extends GetxService {
     _recount();
   }
 
+  void checkForExpiredHolds() {
+    var changed = false;
+    for (final item in items) {
+      if (item.reservationStatus == ReservationStatus.active && !item.isLoading && item.reservation != null && item.reservation!.isExpired) {
+        item.reservationStatus = ReservationStatus.expired;
+        changed = true;
+      }
+    }
+    if (changed) items.refresh();
+  }
+
+  bool get canCheckout => items.isNotEmpty && items.every((i) => i.reservationStatus == ReservationStatus.active && !i.isLoading);
+
   num get total => items.fold(0, (sum, i) => sum + i.lineTotal);
 
   void _recount() {

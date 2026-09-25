@@ -15,6 +15,16 @@ class CartController extends GetxController {
 
   Future<void> checkout() async {
     if (cartService.items.isEmpty || isCheckingOut.value) return;
+
+    if (!cartService.canCheckout) {
+      Get.snackbar(
+        'Check your bag',
+        'One or more items need a fresh hold before you can check out.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
     isCheckingOut.value = true;
     try {
       final order = await orderRepo.checkout(cartService.items.toList());
@@ -26,11 +36,20 @@ class CartController extends GetxController {
       );
     } on ApiException catch (e) {
       LogService.error('checkout failed', e);
-      Get.snackbar(
-        'Checkout failed',
-        e.message,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      if (e.statusCode == 410) {
+        cartService.checkForExpiredHolds();
+        Get.snackbar(
+          'A hold just expired',
+          "One of your items' reservations expired. Please review your bag and try again.",
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } else {
+        Get.snackbar(
+          'Checkout failed',
+          e.message,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     }
     isCheckingOut.value = false;
   }
