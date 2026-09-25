@@ -325,6 +325,33 @@ shown on two screens at once only gets removed from the cart once.
 
 
 ---
+### F-2: Impression tracking
+
+**What I built:** logs a `deal_impression` event when a deal card has been
+≥50% visible for 1 continuous second, on the home feed, flash rail, and
+search results. At most once per deal per session, across all screens.
+Events are batched and sent through `FakeApiService.sendAnalyticsBatch`
+every 10 events or 15 seconds after the first unsent one, whichever comes
+first.
+
+**How it works:** `DealImpressionWrapper` wraps each card with
+`VisibilityDetector`. When a card crosses 50% visible it starts a 1s timer;
+if it drops below 50% or the widget is disposed, the timer is cancelled.
+Once the timer fires, it calls `DealImpressionService.trackImpression`,
+which checks a `Set<int>` of deal ids already logged this session (so it
+can never fire twice for the same deal), logs it locally via
+`AnalyticsService` (so it shows up on the debug screen right away), and adds
+it to a pending batch. The batch flushes on a 15s timer that only starts
+from the first pending event, or immediately once it hits 10.
+
+**A bug I did fix:** Using whole enum value instead of their string value
+when assinging key in VisibilityDetector
+
+**Edge cases:** handled — a card visible for under 1 second logs nothing;
+the same deal shown in two lists at once (e.g. flash rail and home feed)
+only logs once. 
+
+---
 
 ## Time spent
 
@@ -339,7 +366,8 @@ shown on two screens at once only gets removed from the cart once.
 | RES-105 | ~2 hr |
 | RES-107 | ~15 mins |
 | F-1 | ~35 mins |
-| **Total** | **~260 mins** |
+| F-2 | ~1hr 30 mins |
+| **Total** | **~350 mins** |
 
 ## With one more day
 - TBD
