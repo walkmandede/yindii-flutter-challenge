@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:rescu/feature/shared_widget/count_down_label_widget.dart';
+import 'package:rescu/model/cart_item_model.dart';
+import 'package:rescu/service/cart_service.dart';
 
 import '../../app_config.dart';
 import '../shared_widget/the_network_image.dart';
@@ -42,20 +45,12 @@ class CartScreen extends GetView<CartController> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(item.deal.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w600)),
-                          Text(item.deal.storeName,
-                              style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: Colors.grey.shade600)),
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600)),
+                          Text(item.deal.storeName, style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
                           Text('฿${item.deal.price.toStringAsFixed(0)} each',
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppConfig.primaryGreen,
-                                  fontWeight: FontWeight.w600)),
+                              style: const TextStyle(fontSize: 13, color: AppConfig.primaryGreen, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          _reservationStatusWidget(cart, item),
                         ],
                       ),
                     ),
@@ -66,9 +61,7 @@ class CartScreen extends GetView<CartController> {
                           icon: const Icon(Icons.remove_circle_outline),
                           onPressed: () => cart.decrement(item.deal.id),
                         ),
-                        Text('${item.quantity}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold)),
+                        Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
                         IconButton(
                           visualDensity: VisualDensity.compact,
                           icon: const Icon(Icons.add_circle_outline),
@@ -95,22 +88,15 @@ class CartScreen extends GetView<CartController> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('Total', style: TextStyle(fontSize: 13)),
-                  Text('฿${cart.total.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text('฿${cart.total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(width: 24),
               Expanded(
                 child: FilledButton(
-                  onPressed: controller.isCheckingOut.value
-                      ? null
-                      : controller.checkout,
+                  onPressed: controller.isCheckingOut.value ? null : controller.checkout,
                   child: controller.isCheckingOut.value
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Checkout'),
                 ),
               ),
@@ -119,5 +105,34 @@ class CartScreen extends GetView<CartController> {
         );
       }),
     );
+  }
+
+  Widget _reservationStatusWidget(CartService cart, CartItemModel item) {
+    switch (item.reservationStatus) {
+      case ReservationStatus.pending:
+        return const Text('Reserving…', style: TextStyle(fontSize: 12, color: Colors.grey));
+      case ReservationStatus.active:
+        final expiresAt = item.reservation?.expiresAt;
+        if (expiresAt == null) return const SizedBox.shrink();
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.timer_outlined, size: 14, color: Colors.grey.shade600),
+            const SizedBox(width: 4),
+            Text('Held ', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+            CountdownLabelWidget(
+              endsAt: expiresAt,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+            ),
+          ],
+        );
+      case ReservationStatus.expired:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Expired', style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.w600)),
+          ],
+        );
+    }
   }
 }

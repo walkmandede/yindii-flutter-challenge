@@ -50,7 +50,7 @@ class DealCard extends StatelessWidget {
                           ),
                         ),
                         //flash slae count down
-                        FlashSaleEndInWidget(deal: deal),
+                        if (deal.isFlashSale) FlashSaleEndInWidget(deal: deal),
                       ],
                     ),
                   ),

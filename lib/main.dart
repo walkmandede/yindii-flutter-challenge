@@ -27,8 +27,8 @@ Future<void> initDependencies() async {
   Get.lazyPut(() => OrderRepo(api: Get.find()), fenix: true);
 
   Get.put(TickerService(), permanent: true);
-  Get.put(FlashSaleService(ticker: Get.find(), cartService: Get.find()), permanent: true);
   Get.put(CartService(orderRepo: Get.find(), ticker: Get.find()), permanent: true);
+  Get.put(FlashSaleService(ticker: Get.find(), cartService: Get.find()), permanent: true);
 
   Get.put(DealImpressionService(analytics: Get.find(), api: Get.find()), permanent: true);
 }
