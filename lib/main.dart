@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:rescu/service/deal_impression_service.dart';
 import 'package:rescu/service/flash_sale_service.dart';
 import 'package:rescu/service/ticker_service.dart';
 
@@ -28,6 +29,8 @@ Future<void> initDependencies() async {
 
   Get.put(TickerService(), permanent: true);
   Get.put(FlashSaleService(ticker: Get.find(), cartService: Get.find()), permanent: true);
+
+  Get.put(DealImpressionService(analytics: Get.find(), api: Get.find()), permanent: true);
 }
 
 class RescuApp extends StatelessWidget {
