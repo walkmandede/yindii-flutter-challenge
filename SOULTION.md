@@ -352,6 +352,57 @@ the same deal shown in two lists at once (e.g. flash rail and home feed)
 only logs once. 
 
 ---
+### F-3: Stock reservations with optimistic UI
+
+**What I built:** adding to the bag now makes a real reservation on the
+backend instead of just being local. The item shows up in the bag right
+away (optimistic), then the reservation call runs in the background. If it
+fails, the item is rolled back — removed if it was a new line, or its
+quantity reduced back down if it was an existing line — and the user gets a
+plain message instead of a raw error. Each line shows a live countdown to
+when its hold runs out. Removing a line (or reducing it to zero) releases
+the hold. Checkout is blocked with a message if any line isn't fully
+reserved, and a `410` from checkout (a hold expiring right at the wire)
+re-checks the bag and tells the user to look at it again.
+
+**A real bug I found while testing, not while coding:** the automatic
+"check every second if any hold expired" logic (`checkForExpiredHolds`,
+hooked to the same ticker from F-1) only actually ran when I manually
+triggered it — a line would sit there showing an old countdown forever
+unless I tapped checkout. Turned out the `onInit()` override that
+subscribes to the ticker had gone missing from `CartService` somewhere
+across a few rounds of edits — the method existed, but nothing was calling
+it on its own. Found this by just sitting on the cart screen and watching
+nothing happen, not by reading the code. Added `onInit()` back with
+`ever(ticker.now, (_) => checkForExpiredHolds())`.
+
+**Decision — what happens when a hold expires while still in the app:** I
+went with: don't silently drop the item, don't silently renew it either
+(that defeats the whole point of a 5 minute limit) — mark it clearly as
+expired and block checkout until the user does something about it.
+
+**Rejected alternative:** silently re-reserving expired items in the
+background so the user never notices. Rejected because it lets someone
+hold scarce stock indefinitely just by keeping the app open, which is the
+exact problem the 5-minute limit exists to prevent.
+
+**Edge cases:**
+- Handled: a reservation failing on add/increment rolls back to the
+  previous quantity (or removes the line entirely if it was new), not a
+  full-bag reset.
+- Handled: a line removed from the bag while its reservation call was still
+  in flight — the reservation gets released instead of left dangling.
+- Handled: checkout blocked up front if anything isn't fully reserved, plus
+  a separate `410` handler for the rare case where a hold expires between
+  that check and the server processing it.
+- Not handled: reducing quantity always releases the old reservation and
+  makes a brand new one for the smaller amount, instead of adjusting it in
+  place — the API has no endpoint for that, so this is release-and-reserve
+  in the same call.
+
+
+
+---
 
 ## Time spent
 
@@ -367,7 +418,8 @@ only logs once.
 | RES-107 | ~15 mins |
 | F-1 | ~35 mins |
 | F-2 | ~1hr 30 mins |
-| **Total** | **~350 mins** |
+| F-3 | ~2hr 10 mins |
+| **Total** | **~420 mins** |
 
 ## With one more day
 - TBD
