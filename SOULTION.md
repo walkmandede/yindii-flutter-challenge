@@ -252,17 +252,17 @@ I measured with the DevTools Memory tab and the console.
 1. `isScrolled` and `showScrollToTop` bools that change only when a threshold is
    crossed. `Obx` now wraps only the app bar, the body data and the
    scroll-to-top button, not the whole screen.
-2. `CustomScrollView` with `SliverList.builder`, so only visible cards are
-   built and `visibleDeals` is copied only when `deals` or the filter change.
-3. `memCacheWidth` in `TheNetworkImage`, from the real layout width
+2. `memCacheWidth` in `TheNetworkImage`, from the real layout width
    (read with `LayoutBuilder`) times the device pixel ratio. I set only the
    width so the aspect ratio is kept.
+
 **After (measured):**
 - Console: each `DealCard` is built once when it scrolls into view, seconds
   apart, and no repeated `Home Screen has been built` lines appear.
 - Image cache: 46.6 MB with 40 images at 40 deals; 52.8 to 57.8 MB with 45 to
   49 images at 60 deals. That is about 1.2 MB per image, about 6 times smaller.
   With the same 100 MB limit, about 6 times more images fit in the cache.
+
 | | Before | After |
 |---|---|---|
 | Image cache at 40 to 60 deals | 95.2 MB, 13 images | 46.6 to 57.8 MB, 40 to 49 images |
@@ -433,6 +433,7 @@ expired and block checkout until the user does something about it.
 background so the user never notices. Rejected because it lets someone
 hold scarce stock indefinitely just by keeping the app open, which is the
 exact problem the 5-minute limit exists to prevent.
+
 
 **Edge cases:**
 - Handled: a reservation failing on add/increment rolls back to the
